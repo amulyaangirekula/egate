@@ -1,0 +1,9 @@
+1.python -m backend.main
+
+or
+2.cd backend
+  python main.py
+
+or
+3.python backend/main.py
+
