@@ -1,76 +1,136 @@
 """
-AI-based license plate recognition utilities
+License plate recognition using OpenCV + Tesseract OCR (LIVE)
+Contour-based plate detection (more reliable than Haar)
 """
-import google.generativeai as genai
-from tkinter import messagebox
-from config import API_KEY
-import time
 
-# Configure Gemini API
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-else:
-    model = None
+import cv2
+import numpy as np
+import pytesseract
+from collections import Counter
 
-# Cache to avoid repeated API calls for the same image
-recognition_cache = {}
-CACHE_TIMEOUT = 60  # seconds
+# IMPORTANT: Set Tesseract path (Windows)
+pytesseract.pytesseract.tesseract_cmd = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
+
+# Buffer to stabilize live OCR results
+plate_buffer = []
+
 
 def extract_plate_text(image, status_callback=None):
     """
-    Extract license plate text from image using Gemini AI
-    
+    Extract license plate text from a live camera frame (PIL Image)
+
     Args:
-        image: PIL Image object
-        status_callback: Function to update status
-        
+        image: PIL Image captured from camera
+        status_callback: Function to update UI status
+
     Returns:
-        Extracted plate text or None if failed
+        Final stabilized plate text or None
     """
-    if not API_KEY:
-        messagebox.showerror("API Key Missing", "Please add your Gemini API key in config.py")
-        if status_callback:
-            status_callback("API Key missing")
+
+    if image is None:
         return None
-        
-    if not image:
-        messagebox.showwarning("No Image", "Please upload an image first.")
-        return None
-    
-    # Generate a simple image hash for caching
-    # This is a simple hash and could be improved with better image hashing algorithms
-    now = time.time()
-    
-    # Remove expired cache entries
-    for key in list(recognition_cache.keys()):
-        if now - recognition_cache[key]['timestamp'] > CACHE_TIMEOUT:
-            del recognition_cache[key]
-    
-    if status_callback:
-        status_callback("Processing image with AI...")
-    
-    prompt = "Extract only the vehicle number plate text from this image. Reply only with the plate number, nothing else. If no plate is visible, respond with 'NO_PLATE_DETECTED'."
-    
+
     try:
-        response = model.generate_content([prompt, image])
-        plate_text = response.text.strip()
-        
-        # Handle the case where no plate is detected
-        if plate_text == "NO_PLATE_DETECTED":
+        if status_callback:
+            status_callback("Detecting number plate...")
+
+        # Convert PIL Image → OpenCV (BGR)
+        img = np.array(image)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+        # Resize full frame slightly for better contour detection
+        img = cv2.resize(img, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC)
+
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Noise reduction
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+
+        # Edge detection
+        edged = cv2.Canny(gray, 170, 200)
+
+        # Find contours
+        contours, _ = cv2.findContours(
+            edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        # Sort contours by area (largest first)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+
+        plate_img = None
+
+        for c in contours:
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.018 * peri, True)
+
+            # Plate is usually rectangular (4 sides)
+            if len(approx) == 4:
+                x, y, w, h = cv2.boundingRect(approx)
+
+                # Aspect ratio check for number plates
+                aspect_ratio = w / float(h)
+
+                if 2.0 < aspect_ratio < 6.0 and w > 100 and h > 30:
+                    plate_img = img[y:y + h, x:x + w]
+                    break
+
+        if plate_img is None:
             if status_callback:
-                status_callback("No license plate detected in image")
+                status_callback("No plate detected")
             return None
-            
-        if status_callback:
-            status_callback("Plate extraction complete")
-            
-        return plate_text
-        
+
+        # ---------- PREPROCESSING FOR OCR ----------
+        plate_img = cv2.resize(
+            plate_img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC
+        )
+
+        gray_plate = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
+        gray_plate = cv2.bilateralFilter(gray_plate, 11, 17, 17)
+
+        _, thresh = cv2.threshold(
+            gray_plate, 0, 255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+
+        # ---------- OCR ----------
+        config = (
+            "--oem 3 "
+            "--psm 7 "
+            "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        )
+
+        text = pytesseract.image_to_string(thresh, config=config)
+        plate_text = text.strip().replace(" ", "").replace("\n", "")
+
+        # Debug output (VERY useful)
+        print("OCR RAW OUTPUT:", repr(text))
+
+        if len(plate_text) < 6:
+            if status_callback:
+                status_callback("No plate detected")
+            return None
+
+        # ---------- LIVE STABILIZATION ----------
+        plate_buffer.append(plate_text)
+
+        if len(plate_buffer) >= 1:
+            final_plate = Counter(plate_buffer).most_common(1)[0][0]
+            plate_buffer.clear()
+
+            print("FINAL PLATE:", final_plate)
+
+            if status_callback:
+                status_callback("Plate detected successfully")
+
+            return final_plate
+
+        return None
+
     except Exception as e:
-        messagebox.showerror("Gemini Error", f"Gemini API error: {e}")
-        
+        print("OCR ERROR:", e)
         if status_callback:
-            status_callback("AI processing failed")
-            
+            status_callback("OCR failed")
         return None
