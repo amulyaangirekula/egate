@@ -1,10 +1,11 @@
 import tkinter as tk
 
-from backend.dbModule import FaceRecognitionDB
-from backend.face_recognition import FaceRecognitionSystem
-from frontend.main_ui import MainUI
-from backend.utils import ensure_directories_exist
-from backend.config import DB_CONFIG, DIRECTORIES
+from FaceRecognitionSystem.frontend.main_ui import MainUI
+from FaceRecognitionSystem.backend.dbModule import FaceRecognitionDB
+from FaceRecognitionSystem.backend.face_recognition import FaceRecognitionSystem
+from FaceRecognitionSystem.backend.utils import ensure_directories_exist
+from FaceRecognitionSystem.backend.config import DB_CONFIG, DIRECTORIES
+
 
 def main():
     # Ensure directories exist

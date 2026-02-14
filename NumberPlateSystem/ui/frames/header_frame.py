@@ -3,7 +3,7 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 
-from config import DARK_BG, ACCENT, TEXT_COLOR
+from NumberPlateSystem.config import DARK_BG, ACCENT, TEXT_COLOR
 
 class HeaderFrame:
     def __init__(self, master):

@@ -3,10 +3,10 @@ Button controls frame with live camera support
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
-from ui.components import HoverButton
-from utils.plate_recognition import extract_plate_text
-from data.vehicle_database import register_vehicle, verify_vehicle, get_all_vehicles
-from config import BTN_BG, TEXT_COLOR
+from NumberPlateSystem.ui.components import HoverButton
+from NumberPlateSystem.utils.plate_recognition import extract_plate_text
+from NumberPlateSystem.data.vehicle_database import register_vehicle, verify_vehicle, get_all_vehicles
+from NumberPlateSystem.config import BTN_BG, TEXT_COLOR
 
 class ButtonFrame:
     def __init__(self, master, app):

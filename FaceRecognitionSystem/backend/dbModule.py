@@ -1,7 +1,7 @@
 import mysql.connector
 from mysql.connector import Error
 import datetime
-from backend.config import DB_CONFIG  # Import the config
+from FaceRecognitionSystem.backend.config import DB_CONFIG
 
 class FaceRecognitionDB:
     def __init__(self, host, user, password, database):

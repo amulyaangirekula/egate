@@ -1,18 +1,30 @@
 # Configuration settings for the application
 
-# Directory configuration
 import os
 
-# Get the absolute path of the FaceRecognitionSystem folder
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# -------------------------------------------------
+# PATH CONFIGURATION
+# -------------------------------------------------
 
-# Directory configuration
+# Absolute path of backend folder
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Absolute path of FaceRecognitionSystem folder
+PROJECT_DIR = os.path.abspath(os.path.join(BACKEND_DIR, ".."))
+
+# -------------------------------------------------
+# DIRECTORY CONFIGURATION
+# -------------------------------------------------
+
 DIRECTORIES = [
-    os.path.join(f'{BASE_DIR}/dataset', "CapturedFaces"),
-    os.path.join(f'{BASE_DIR}/dataset', "UnknownFaces")
+    os.path.join(BACKEND_DIR, "dataset", "CapturedFaces"),
+    os.path.join(BACKEND_DIR, "dataset", "UnknownFaces")
 ]
 
-# Database configuration
+# -------------------------------------------------
+# DATABASE CONFIGURATION
+# -------------------------------------------------
+
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
@@ -20,17 +32,35 @@ DB_CONFIG = {
     'database': 'face_recognition'
 }
 
+# -------------------------------------------------
+# FACE RECOGNITION SETTINGS
+# -------------------------------------------------
 
-# Face recognition settings
 FACE_RECOGNITION = {
-    'cascade_file': 'assets\haarcascade_frontalface_default.xml',
-    'training_file': 'dataset\CapturedFaces\Trainner.yml',
+    # assets folder is OUTSIDE backend
+    'cascade_file': os.path.join(
+        PROJECT_DIR,
+        'assets',
+        'haarcascade_frontalface_default.xml'
+    ),
+
+    # trainer file is inside backend/dataset
+    'training_file': os.path.join(
+        BACKEND_DIR,
+        'dataset',
+        'CapturedFaces',
+        'Trainner.yml'
+    ),
+
     'confidence_threshold': 50,
     'poor_match_threshold': 75,
     'samples_per_face': 60
 }
 
-# Gate monitoring settings
+# -------------------------------------------------
+# GATE MONITORING SETTINGS
+# -------------------------------------------------
+
 MONITORING = {
-    'default_duration': 20  # Default monitoring duration in seconds
+    'default_duration': 20  # seconds
 }

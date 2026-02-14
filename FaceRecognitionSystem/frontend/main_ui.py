@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from frontend.register_ui import RegisterUI
-from frontend.history_ui import HistoryUI
-from frontend.theme import TITLE_FONT, BUTTON_STYLE
+from FaceRecognitionSystem.frontend.register_ui import RegisterUI
+from FaceRecognitionSystem.frontend.history_ui import HistoryUI
+from FaceRecognitionSystem.frontend.theme import TITLE_FONT, BUTTON_STYLE
 from PIL import Image, ImageTk
 
 class MainUI:

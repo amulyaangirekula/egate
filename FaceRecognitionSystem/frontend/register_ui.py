@@ -1,8 +1,14 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
-from backend.utils import validate_email, validate_name, validate_id
-from frontend.theme import LABEL_STYLE, ENTRY_STYLE, BUTTON_STYLE, SECTION_TITLE
+from FaceRecognitionSystem.backend.dbModule import FaceRecognitionDB
+from FaceRecognitionSystem.frontend.theme import LABEL_STYLE, ENTRY_STYLE, BUTTON_STYLE, SECTION_TITLE
+from FaceRecognitionSystem.backend.utils import (
+    validate_name,
+    validate_email,
+    validate_id
+)
+
 
 class RegisterUI:
     def __init__(self, parent, db_instance, face_recognition_system):

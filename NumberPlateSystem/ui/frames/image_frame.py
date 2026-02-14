@@ -4,8 +4,8 @@ Image display panel with camera support
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
-from config import LIGHT_BG, TEXT_COLOR, ACCENT
-from utils.camera import CameraManager
+from NumberPlateSystem.config import LIGHT_BG, TEXT_COLOR, ACCENT
+from NumberPlateSystem.utils.camera import CameraManager
 
 class ImageFrame:
     def __init__(self, master):

@@ -3,13 +3,13 @@ Main application window
 """
 import tkinter as tk
 from tkinter import ttk
-from config import DARK_BG
+from NumberPlateSystem.config import DARK_BG
 
-from ui.styles import setup_styles
-from ui.frames.header_frame import HeaderFrame
-from ui.frames.image_frame import ImageFrame
-from ui.frames.results_frame import ResultsFrame
-from ui.frames.button_frame import ButtonFrame
+from NumberPlateSystem.ui.styles import setup_styles
+from NumberPlateSystem.ui.frames.header_frame import HeaderFrame
+from NumberPlateSystem.ui.frames.image_frame import ImageFrame
+from NumberPlateSystem.ui.frames.results_frame import ResultsFrame
+from NumberPlateSystem.ui.frames.button_frame import ButtonFrame
 
 class Application:
     def __init__(self, master):

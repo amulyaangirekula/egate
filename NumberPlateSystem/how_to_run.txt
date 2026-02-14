@@ -1,0 +1,2 @@
+#in terminal /egate/
+python -m NumberPlateSystem.main

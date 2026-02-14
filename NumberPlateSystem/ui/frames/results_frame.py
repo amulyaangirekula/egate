@@ -1,7 +1,7 @@
 # Results display panel
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from config import LIGHT_BG, TEXT_COLOR
+from NumberPlateSystem.config import LIGHT_BG, TEXT_COLOR
 
 class ResultsFrame:
     def __init__(self, master):

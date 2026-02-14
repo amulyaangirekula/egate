@@ -3,189 +3,249 @@ import os
 import time
 import datetime
 import numpy as np
-from backend.utils import get_face_recognizer, get_images_and_labels
-from backend.config import BASE_DIR, FACE_RECOGNITION
+
+from FaceRecognitionSystem.backend.utils import (
+    get_face_recognizer,
+    get_images_and_labels
+)
+from FaceRecognitionSystem.backend.config import FACE_RECOGNITION
+
 
 class FaceRecognitionSystem:
     def __init__(self, db_instance):
         self.db = db_instance
-        self.cascade_path = FACE_RECOGNITION['cascade_file']
-        self.training_file = os.path.join(BASE_DIR, 'dataset', 'CapturedFaces', 'Trainner.yml')
-        self.confidence_threshold = FACE_RECOGNITION['confidence_threshold']
-        self.poor_match_threshold = FACE_RECOGNITION['poor_match_threshold']
-        self.samples_per_face = FACE_RECOGNITION['samples_per_face']
-        
+
+        # Paths from config
+        self.cascade_path = FACE_RECOGNITION["cascade_file"]
+        self.training_file = FACE_RECOGNITION["training_file"]
+
+        # Thresholds
+        self.confidence_threshold = FACE_RECOGNITION["confidence_threshold"]
+        self.poor_match_threshold = FACE_RECOGNITION["poor_match_threshold"]
+        self.samples_per_face = FACE_RECOGNITION["samples_per_face"]
+
+    # -------------------------------------------------
+    # CAPTURE TRAINING IMAGES
+    # -------------------------------------------------
+
     def capture_training_images(self, name, user_id):
-        """Capture training images for a user"""
         cam = cv2.VideoCapture(0)
         detector = cv2.CascadeClassifier(self.cascade_path)
+
+        if detector.empty():
+            raise Exception(
+                f"Haar cascade not loaded: {self.cascade_path}"
+            )
+
         sample_num = 0
-        
+        output_path = os.path.dirname(self.training_file)
+        os.makedirs(output_path, exist_ok=True)
+
         while True:
             ret, img = cam.read()
             if not ret:
-                raise Exception("Camera error. Please check your camera.")
-                
+                raise Exception("Camera error")
+
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             faces = detector.detectMultiScale(gray, 1.3, 5)
-            
-            for (x, y, w, h) in faces:
-                cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                sample_num += 1
-                # Save the captured face
-                output_path = os.path.join(BASE_DIR, 'dataset', 'CapturedFaces')
-                os.makedirs(output_path, exist_ok=True)  # Ensure directory exists
 
-                cv2.imwrite(os.path.join(output_path, f"{name}.{user_id}.{sample_num}.jpg"), gray[y:y+h, x:x+w])
-                
-                # Show progress
-                cv2.putText(img, f"Images Captured: {sample_num}/{self.samples_per_face}", 
-                           (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.imshow('Capturing Face', img)
-                
-            if cv2.waitKey(100) & 0xFF == ord('q'):
+            for (x, y, w, h) in faces:
+                sample_num += 1
+
+                cv2.imwrite(
+                    os.path.join(
+                        output_path,
+                        f"{name}.{user_id}.{sample_num}.jpg"
+                    ),
+                    gray[y:y + h, x:x + w]
+                )
+
+                cv2.rectangle(
+                    img, (x, y), (x + w, y + h), (255, 0, 0), 2
+                )
+
+                cv2.putText(
+                    img,
+                    f"Captured: {sample_num}/{self.samples_per_face}",
+                    (30, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 255, 0),
+                    2
+                )
+
+                cv2.imshow("Capturing Face", img)
+
+            if cv2.waitKey(100) & 0xFF == ord("q"):
                 break
-            elif sample_num >= self.samples_per_face:
+            if sample_num >= self.samples_per_face:
                 break
-                
+
         cam.release()
         cv2.destroyAllWindows()
-        
         return sample_num
-        
+
+    # -------------------------------------------------
+    # TRAIN MODEL
+    # -------------------------------------------------
+
     def train_model(self):
-        """Train the face recognition model"""
-        # Check if CapturedFaces directory exists and has files
-        if not os.path.exists(f'{BASE_DIR}/dataset/CapturedFaces') or len(os.listdir(f'{BASE_DIR}/dataset/CapturedFaces')) == 0:
-            raise Exception("No training images found. Please capture images first.")
-            
-        # Get face recognizer
+        training_dir = os.path.dirname(self.training_file)
+
+        if not os.path.exists(training_dir) or len(os.listdir(training_dir)) == 0:
+            raise Exception("No training images found")
+
         recognizer = get_face_recognizer()
-            
-        # Get training data
-        faces, ids = get_images_and_labels(f"{BASE_DIR}/dataset/CapturedFaces")
-        
+        faces, ids = get_images_and_labels(training_dir)
+
         if len(faces) == 0:
-            raise Exception("No faces detected in training images.")
-            
-        # Train model
+            raise Exception("No faces detected in training data")
+
         recognizer.train(faces, np.array(ids))
-        
-        # Save the model
         recognizer.save(self.training_file)
-        
-        # Log training in database
+
         self.db.log_training(len(faces))
-        
         return len(faces)
-        
-    def monitor_gate(self, max_runtime=None):
-        """Monitor gate for authorized users"""
-        # Use default runtime if not specified
-        if max_runtime is None:
-            from backend.config import MONITORING
-            max_runtime = MONITORING['default_duration']
-            
-        # Check if trained model exists
+
+    # -------------------------------------------------
+    # SINGLE IMAGE RECOGNITION (INTEGRATED GATE)
+    # -------------------------------------------------
+
+    def recognize_face_from_image(self, image_path):
         if not os.path.exists(self.training_file):
-            raise Exception("Trained model not found. Please train first.")
-            
-        # Initialize face recognizer
+            return {"status": "UNKNOWN", "name": None}
+
         recognizer = get_face_recognizer()
-        
-        # Load trained model
         recognizer.read(self.training_file)
-        faceCascade = cv2.CascadeClassifier(self.cascade_path)
-        
-        # Start camera
+
+        face_cascade = cv2.CascadeClassifier(self.cascade_path)
+        if face_cascade.empty():
+            raise Exception(
+                f"Haar cascade not loaded: {self.cascade_path}"
+            )
+
+        img = cv2.imread(image_path)
+        if img is None:
+            return {"status": "UNKNOWN", "name": None}
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.2, 5)
+
+        if len(faces) == 0:
+            return {"status": "UNKNOWN", "name": None}
+
+        for (x, y, w, h) in faces:
+            user_id, conf = recognizer.predict(gray[y:y + h, x:x + w])
+
+            if conf < self.confidence_threshold:
+                user = self.db.get_user_details(user_id)
+                if user:
+                    return {
+                        "status": "KNOWN",
+                        "name": user["name"]
+                    }
+
+        return {"status": "UNKNOWN", "name": None}
+
+    # -------------------------------------------------
+    # LIVE GATE MONITOR (FACE-ONLY APP)
+    # -------------------------------------------------
+
+    def monitor_gate(self, max_runtime=20):
+        if not os.path.exists(self.training_file):
+            raise Exception("Train model first")
+
+        recognizer = get_face_recognizer()
+        recognizer.read(self.training_file)
+
+        face_cascade = cv2.CascadeClassifier(self.cascade_path)
+        if face_cascade.empty():
+            raise Exception(
+                f"Haar cascade not loaded: {self.cascade_path}"
+            )
+
         cam = cv2.VideoCapture(0)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        
-        # Track recognized users
+
         recognized_users = []
-        
-        # Set up timer
         start_time = time.time()
-        
-        current_date = datetime.datetime.now().strftime('%Y-%m-%d')
-        
+        today = datetime.date.today().strftime("%Y-%m-%d")
+
+        unknown_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(self.training_file),
+                "..",
+                "UnknownFaces"
+            )
+        )
+        os.makedirs(unknown_dir, exist_ok=True)
+
         while True:
-            ret, im = cam.read()
+            ret, frame = cam.read()
             if not ret:
-                raise Exception("Camera error. Please check your camera.")
-                
-            gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            faces = faceCascade.detectMultiScale(gray, 1.2, 5)
-            
+                break
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.2, 5)
+
             for (x, y, w, h) in faces:
-                cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
                 user_id, conf = recognizer.predict(gray[y:y + h, x:x + w])
-                
-                tt = "Unknown"  # Default text
                 access_granted = False
-                
-                if conf < self.confidence_threshold:  # Good match
-                    ts = time.time()
-                    date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-                    timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                    
-                    # Get user details from database
+                label = "Unknown"
+
+                if conf < self.confidence_threshold:
                     user = self.db.get_user_details(user_id)
-                    
                     if user:
-                        name = user['name']
-                        id_number = user['id_number']
-                        
-                        # Get access count
-                        access_count = self.db.get_access_count(user_id)
-                        
-                        tt = f"{name} (ID: {id_number})"
                         access_granted = True
-                        
-                        # Record gate access if first time in this session
+                        label = user["name"]
+
                         if user_id not in recognized_users:
                             recognized_users.append(user_id)
-                            self.db.record_gate_access(user_id, date, timeStamp, "Granted")
-                        
-                        # Display access count on image
-                        cv2.putText(im, f"Access Count: {access_count + 1}", (x, y - 10), font, 0.75, (0, 255, 0), 2)
-                
-                if conf > self.poor_match_threshold:  # Poor match
-                    # Save unknown face
-                          # Save the captured face
-                    output_path = os.path.join(BASE_DIR, 'dataset', 'UnknownFaces')
-                    os.makedirs(output_path, exist_ok=True)  # Ensure directory exists
-                    
-                    noOfFile = len(os.listdir(f'{BASE_DIR}/dataset/UnknownFaces')) + 1
-                    cv2.imwrite(os.path.join(output_path,f"Image{noOfFile}.jpg"), im[y:y + h, x:x + w])
-                    
-                    # Log unknown access attempt
-                    ts = time.time()
-                    date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-                    timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                    self.db.record_gate_access(None, date, timeStamp, "Denied")
-                
-                # Display name and access status on image
-                cv2.putText(im, str(tt), (x, y + h), font, 1, (255, 255, 255), 2)
-                status_color = (0, 255, 0) if access_granted else (0, 0, 255)
-                status_text = "ACCESS GRANTED" if access_granted else "ACCESS DENIED"
-                cv2.putText(im, status_text, (x, y + h + 30), font, 0.75, status_color, 2)
-            
-            cv2.imshow('Gate Access Monitor', im)
-            
-            # Auto-exit condition
+                            now = datetime.datetime.now()
+                            self.db.record_gate_access(
+                                user_id,
+                                today,
+                                now.strftime("%H:%M:%S"),
+                                "Granted"
+                            )
+
+                elif conf > self.poor_match_threshold:
+                    filename = f"unknown_{int(time.time())}.jpg"
+                    cv2.imwrite(
+                        os.path.join(unknown_dir, filename),
+                        frame[y:y + h, x:x + w]
+                    )
+
+                color = (0, 255, 0) if access_granted else (0, 0, 255)
+                status = "GRANTED" if access_granted else "DENIED"
+
+                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+                cv2.putText(
+                    frame,
+                    f"{label} - {status}",
+                    (x, y - 10),
+                    font,
+                    0.9,
+                    color,
+                    2
+                )
+
+            cv2.imshow("Face Gate Monitor", frame)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
             if time.time() - start_time > max_runtime:
                 break
-            
-            if cv2.waitKey(1) == ord('q'):  # Manual exit
-                break
-        
+
         cam.release()
         cv2.destroyAllWindows()
-        
-        # Log session in database
+
         duration = round(time.time() - start_time, 2)
-        end_time = datetime.datetime.now().strftime('%H:%M:%S')
-        self.db.log_gate_session(current_date, end_time, len(recognized_users), duration)
-        
+        self.db.log_gate_session(
+            today,
+            datetime.datetime.now().strftime("%H:%M:%S"),
+            len(recognized_users),
+            duration
+        )
+
         return len(recognized_users)

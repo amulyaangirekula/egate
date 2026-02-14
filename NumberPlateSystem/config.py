@@ -1,14 +1,13 @@
-"""
-Application configuration
-"""
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
-# File paths
-DATA_DIR = "NumberPlateSystem/data"
+# Base directory of NumberPlateSystem
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# File paths (ABSOLUTE – IMPORTANT)
+DATA_DIR = os.path.join(BASE_DIR, "data")
 DATA_FILE = os.path.join(DATA_DIR, "registered_vehicles.json")
 
 # Ensure data directory exists
@@ -18,12 +17,12 @@ os.makedirs(DATA_DIR, exist_ok=True)
 API_KEY = os.getenv("API_KEY")
 
 # Camera settings
-CAMERA_INDEX = 0  # Default camera (usually the built-in webcam)
+CAMERA_INDEX = 0
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
-CAPTURE_INTERVAL = 5  # Seconds between live verification attempts
+CAPTURE_INTERVAL = 5
 
-# Color scheme
+# Color scheme (UI – safe to keep)
 DARK_BG = "#1e1e2e"
 LIGHT_BG = "#313244"
 ACCENT = "#89b4fa"

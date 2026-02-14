@@ -4,7 +4,7 @@ Database operations for registered vehicles
 import json
 import os
 from datetime import datetime
-from config import DATA_FILE
+from NumberPlateSystem.config import DATA_FILE
 
 def load_database():
     """

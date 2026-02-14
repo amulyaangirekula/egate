@@ -2,7 +2,7 @@
 Custom UI components
 """
 import tkinter as tk
-from config import BTN_BG, TEXT_COLOR, ACCENT, DARK_BG
+from NumberPlateSystem.config import BTN_BG, TEXT_COLOR, ACCENT, DARK_BG
 
 class HoverButton(tk.Button):
     """Button with hover effect"""

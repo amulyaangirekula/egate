@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import pytesseract
 from collections import Counter
+import re
 
 # IMPORTANT: Set Tesseract path (Windows)
 pytesseract.pytesseract.tesseract_cmd = (
@@ -73,9 +74,10 @@ def extract_plate_text(image, status_callback=None):
                 # Aspect ratio check for number plates
                 aspect_ratio = w / float(h)
 
-                if 2.0 < aspect_ratio < 6.0 and w > 100 and h > 30:
+                if 1.5 < aspect_ratio < 7.0 and w > 60 and h > 20:
                     plate_img = img[y:y + h, x:x + w]
                     break
+
 
         if plate_img is None:
             if status_callback:
@@ -95,6 +97,7 @@ def extract_plate_text(image, status_callback=None):
             cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )
 
+
         # ---------- OCR ----------
         config = (
             "--oem 3 "
@@ -103,7 +106,7 @@ def extract_plate_text(image, status_callback=None):
         )
 
         text = pytesseract.image_to_string(thresh, config=config)
-        plate_text = text.strip().replace(" ", "").replace("\n", "")
+        plate_text = re.sub(r'[^A-Z0-9]', '', text.upper())
 
         # Debug output (VERY useful)
         print("OCR RAW OUTPUT:", repr(text))
@@ -133,4 +136,29 @@ def extract_plate_text(image, status_callback=None):
         print("OCR ERROR:", e)
         if status_callback:
             status_callback("OCR failed")
+        return None
+    
+
+def recognize_plate_from_image_path(image_path):
+    """
+    Wrapper for web + integration usage
+    Input: image file path
+    Output: plate number (str) or None
+    """
+    try:
+        import cv2
+        from PIL import Image
+
+        img = cv2.imread(image_path)
+        if img is None:
+            return None
+
+        # Convert OpenCV BGR → RGB → PIL
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(img_rgb)
+
+        return extract_plate_text(pil_image)
+
+    except Exception as e:
+        print("Plate recognition error:", e)
         return None

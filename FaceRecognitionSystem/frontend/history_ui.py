@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import csv, os
 from datetime import datetime
 from tkcalendar import DateEntry  # You may need to install this: pip install tkcalendar
-from frontend.theme import LABEL_STYLE, BUTTON_STYLE
+from FaceRecognitionSystem.frontend.theme import LABEL_STYLE, BUTTON_STYLE
 
 class HistoryUI:
     def __init__(self, parent, db_instance):

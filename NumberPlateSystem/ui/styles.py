@@ -2,7 +2,7 @@
 UI styles for the application
 """
 from tkinter import ttk
-from config import DARK_BG, LIGHT_BG, ACCENT, TEXT_COLOR, BTN_BG
+from NumberPlateSystem.config import DARK_BG, LIGHT_BG, ACCENT, TEXT_COLOR, BTN_BG
 
 def setup_styles():
     """Configure the application styles"""
